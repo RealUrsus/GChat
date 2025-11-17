@@ -1,0 +1,8 @@
+Hello, this is a normal message
+Can you help me with my account?
+<script>alert('XSS')</script>
+' OR '1'='1
+<img src=x onerror=alert(1)>
+; ls -la
+../../../etc/passwd
+Thank you for your assistance

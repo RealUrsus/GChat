@@ -2,6 +2,7 @@
 """
 Genesys Web Chat Testing Bot
 A tool for testing WAF and Genesys Chat with conversation generation and payload testing.
+Supports both local file-based conversations and external AI chat services.
 """
 
 import os
@@ -16,6 +17,16 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
+
+# Import new conversation and service modules
+from chat_services import BaseChatService, ChatMessage, ChatResponse
+from external_chat_service import ExternalChatService, GroqChatService, OpenAIChatService
+from conversation_sources import (
+    ConversationSource,
+    FileConversationSource,
+    ExternalServiceConversationSource,
+    HybridConversationSource
+)
 
 # Try to load .env file support
 try:
@@ -543,6 +554,101 @@ class ConversationBot:
             self.client.send_message(message, delay=delay)
             self.client.refresh(delay=1)
 
+    def run_from_source(
+        self,
+        source: ConversationSource,
+        delay: int = 2,
+        only_user_messages: bool = False
+    ) -> None:
+        """Run conversation from a conversation source.
+
+        Args:
+            source: ConversationSource implementation
+            delay: Delay between messages (seconds)
+            only_user_messages: If True, only send messages from user role
+        """
+        logger.info("🚀 Starting conversation from source")
+
+        message_count = 0
+        for message in source.get_messages():
+            message_count += 1
+            logger.info(f"[{message_count}] Processing message...")
+
+            # Send to Genesys chat
+            self.client.send_message(message, delay=delay)
+            self.client.refresh(delay=1)
+
+        logger.info(f"✅ Conversation completed: {message_count} messages sent")
+
+    def run_external_chat(
+        self,
+        chat_service: BaseChatService,
+        initial_prompts: Optional[List[str]] = None,
+        max_turns: int = 10,
+        delay: int = 2
+    ) -> None:
+        """Run conversation using external chat service.
+
+        Args:
+            chat_service: BaseChatService implementation
+            initial_prompts: Optional list of initial prompts
+            max_turns: Maximum conversation turns
+            delay: Delay between messages (seconds)
+        """
+        logger.info("🌐 Starting external chat conversation")
+
+        # Start external chat session
+        if not chat_service.start_session():
+            logger.error("❌ Failed to start external chat session")
+            return
+
+        # Create conversation source
+        source = ExternalServiceConversationSource(
+            chat_service=chat_service,
+            initial_prompts=initial_prompts,
+            max_turns=max_turns
+        )
+
+        # Run conversation
+        self.run_from_source(source, delay=delay)
+
+        # End external session
+        chat_service.end_session()
+
+    def run_hybrid_conversation(
+        self,
+        file_path: str,
+        chat_service: BaseChatService,
+        delay: int = 2
+    ) -> None:
+        """Run hybrid conversation (file prompts + AI responses).
+
+        Args:
+            file_path: Path to file with user prompts
+            chat_service: BaseChatService for generating responses
+            delay: Delay between messages (seconds)
+        """
+        logger.info("🔀 Starting hybrid conversation")
+        logger.info(f"   File: {file_path}")
+
+        # Start external chat session
+        if not chat_service.start_session():
+            logger.error("❌ Failed to start chat service")
+            return
+
+        # Create hybrid source
+        source = HybridConversationSource(
+            file_path=file_path,
+            chat_service=chat_service,
+            get_responses=True
+        )
+
+        # Run conversation
+        self.run_from_source(source, delay=delay)
+
+        # End session
+        chat_service.end_session()
+
     def run_payload_test(
         self,
         payload_type: str = 'all',
@@ -724,9 +830,12 @@ def main():
     # Mode selection
     parser.add_argument(
         '-m', '--mode',
-        choices=['file', 'payload', 'interactive', 'simple'],
+        choices=['file', 'payload', 'interactive', 'simple', 'external', 'hybrid'],
         default='simple',
-        help='Operation mode (default: simple)'
+        help='Operation mode (default: simple)\n'
+             'file: Load from local file\n'
+             'external: Use external AI chat service\n'
+             'hybrid: Combine file prompts with AI responses'
     )
 
     # File mode options
@@ -741,6 +850,41 @@ def main():
         choices=['xss', 'sqli', 'cmdi', 'path_traversal', 'xxe', 'normal', 'all'],
         default='all',
         help='Type of payloads to test (default: all)'
+    )
+
+    # External chat service options
+    parser.add_argument(
+        '--external-service',
+        choices=['openai', 'groq', 'together', 'custom'],
+        help='External chat service provider (for external/hybrid mode)'
+    )
+
+    parser.add_argument(
+        '--external-api-key',
+        help='API key for external chat service (can use EXTERNAL_API_KEY env var)'
+    )
+
+    parser.add_argument(
+        '--external-base-url',
+        help='Base URL for custom external service (e.g., https://api.example.com/v1)'
+    )
+
+    parser.add_argument(
+        '--external-model',
+        help='Model name for external service (e.g., gpt-3.5-turbo, llama-3.1-8b-instant)'
+    )
+
+    parser.add_argument(
+        '--external-system-prompt',
+        default='You are a helpful customer service assistant. Provide concise, friendly responses.',
+        help='System prompt for external chat service'
+    )
+
+    parser.add_argument(
+        '--max-turns',
+        type=int,
+        default=10,
+        help='Maximum conversation turns for external mode (default: 10)'
     )
 
     # Timing options
@@ -782,6 +926,65 @@ def main():
     # Set logging level
     if args.verbose:
         logger.setLevel(logging.DEBUG)
+
+    # Helper function to create external chat service
+    def create_external_chat_service(args) -> Optional[BaseChatService]:
+        """Create external chat service based on arguments."""
+        if args.mode not in ['external', 'hybrid']:
+            return None
+
+        # Get API key from args or environment
+        external_api_key = args.external_api_key or os.environ.get('EXTERNAL_API_KEY')
+
+        if not external_api_key:
+            logger.error("External API key required: use --external-api-key or set EXTERNAL_API_KEY env var")
+            sys.exit(1)
+
+        if not args.external_service:
+            logger.error("External service provider required: use --external-service")
+            logger.error("Available providers: openai, groq, together, custom")
+            sys.exit(1)
+
+        # Create service based on provider
+        if args.external_service == 'groq':
+            model = args.external_model or 'llama-3.1-8b-instant'
+            return GroqChatService(
+                api_key=external_api_key,
+                model=model,
+                system_prompt=args.external_system_prompt
+            )
+
+        elif args.external_service == 'openai':
+            model = args.external_model or 'gpt-3.5-turbo'
+            return OpenAIChatService(
+                api_key=external_api_key,
+                model=model,
+                system_prompt=args.external_system_prompt
+            )
+
+        elif args.external_service == 'together':
+            from external_chat_service import TogetherAIChatService
+            model = args.external_model or 'meta-llama/Llama-3-8b-chat-hf'
+            return TogetherAIChatService(
+                api_key=external_api_key,
+                model=model,
+                system_prompt=args.external_system_prompt
+            )
+
+        elif args.external_service == 'custom':
+            if not args.external_base_url:
+                logger.error("Custom service requires --external-base-url")
+                sys.exit(1)
+
+            config = {
+                'api_key': external_api_key,
+                'base_url': args.external_base_url,
+                'model': args.external_model or 'default',
+                'system_prompt': args.external_system_prompt
+            }
+            return ExternalChatService(config)
+
+        return None
 
     # Get configuration from args or environment variables
     server = args.server or os.environ.get('GENESYS_SERVER')
@@ -850,6 +1053,30 @@ def main():
 
         elif args.mode == 'interactive':
             bot.interactive_mode()
+
+        elif args.mode == 'external':
+            # External chat mode - use AI service for conversation
+            external_service = create_external_chat_service(args)
+            if external_service:
+                bot.run_external_chat(
+                    chat_service=external_service,
+                    max_turns=args.max_turns,
+                    delay=args.delay
+                )
+
+        elif args.mode == 'hybrid':
+            # Hybrid mode - file prompts + AI responses
+            if not args.file:
+                logger.error("Hybrid mode requires --file argument")
+                sys.exit(1)
+
+            external_service = create_external_chat_service(args)
+            if external_service:
+                bot.run_hybrid_conversation(
+                    file_path=args.file,
+                    chat_service=external_service,
+                    delay=args.delay
+                )
 
         elif args.mode == 'simple':
             # Simple mode - send a test message

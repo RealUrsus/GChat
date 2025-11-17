@@ -10,7 +10,7 @@ A powerful testing tool for WAF and Genesys Web Chat v2 API security testing and
 - 📝 **Multiple Modes** - File-based, payload testing, interactive, and simple modes
 - 🎯 **Payload Generators** - Pre-built payload sets with encoding variants
 - 📊 **Better Logging** - Clear, structured logging with request tracking
-- ⚙️ **Flexible Configuration** - JSON-based configuration with proxy support
+- ⚙️ **Flexible Configuration** - Command-line based configuration (no config files needed!)
 
 ## Improvements Over Original
 
@@ -20,6 +20,7 @@ A powerful testing tool for WAF and Genesys Web Chat v2 API security testing and
 - **PEP 8 Compliant**: Clean, readable Python code style
 - **Better Naming**: snake_case for functions, descriptive variable names
 - **Error Handling**: Proper exception handling without sys.exit() everywhere
+- **No Config Files**: All configuration via CLI arguments and environment variables
 
 ### Features
 - **4 Operation Modes**: Simple, File, Payload, Interactive
@@ -50,16 +51,30 @@ chmod +x genesys_bot.py
 
 ## Configuration
 
-1. Copy the example configuration:
+### Environment Variables (Recommended for API Key)
+
 ```bash
-cp config.example.json data.json
+# Set your API key as environment variable (recommended)
+export GENESYS_API_KEY="your_api_key_here"
 ```
 
-2. Edit `data.json` with your details:
-   - Update `url` with your Genesys Chat endpoint
-   - Set your `apikey` in headers
-   - Configure proxy settings if needed (Burp Suite, etc.)
-   - Customize user data fields
+### Command-Line Arguments
+
+All configuration is now done via command-line arguments. No JSON config files needed!
+
+**Required:**
+- `-s, --server` - Genesys Chat server URL
+
+**Optional:**
+- `--api-key` - API key (or use GENESYS_API_KEY env var)
+- `--nickname` - User nickname (default: TestUser)
+- `--first-name` - First name (default: Test)
+- `--last-name` - Last name (default: User)
+- `--email` - Email address (default: test@example.com)
+- `--subject` - Chat subject (default: Testing)
+- `--proxy-http` - HTTP proxy URL
+- `--proxy-https` - HTTPS proxy URL
+- `--verify-ssl` - Enable SSL verification (disabled by default)
 
 ## Usage
 
@@ -68,9 +83,18 @@ cp config.example.json data.json
 Send a single test message:
 
 ```bash
-python genesys_bot.py
-# or
-python genesys_bot.py -m simple --initial-message "Test message"
+# Using environment variable for API key
+export GENESYS_API_KEY="your_api_key"
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/
+
+# Or pass API key directly
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY
+
+# With custom initial message
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    --initial-message "Test message"
 ```
 
 ### 2. File Mode (Conversation from File)
@@ -78,10 +102,14 @@ python genesys_bot.py -m simple --initial-message "Test message"
 Send messages from a text file (one message per line):
 
 ```bash
-python genesys_bot.py -m file -f payloads/normal_conversation.txt
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    -m file -f payloads/normal_conversation.txt
 
 # With custom delay between messages
-python genesys_bot.py -m file -f payloads/waf_test_basic.txt -d 3
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    -m file -f payloads/waf_test_basic.txt -d 3
 ```
 
 ### 3. Payload Testing Mode (WAF Testing)
@@ -90,16 +118,24 @@ Test specific payload types:
 
 ```bash
 # Test all payload types
-python genesys_bot.py -m payload -p all
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    -m payload -p all
 
 # Test only XSS payloads
-python genesys_bot.py -m payload -p xss
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    -m payload -p xss
 
 # Test SQL injection with 5-second delays
-python genesys_bot.py -m payload -p sqli -d 5
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    -m payload -p sqli -d 5
 
 # Stop on first WAF block
-python genesys_bot.py -m payload -p all --stop-on-block
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    -m payload -p all --stop-on-block
 ```
 
 Available payload types:
@@ -116,7 +152,9 @@ Available payload types:
 Interactive chat session with manual message input:
 
 ```bash
-python genesys_bot.py -m interactive
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    -m interactive
 ```
 
 Commands in interactive mode:
@@ -127,16 +165,30 @@ Commands in interactive mode:
 
 ```bash
 # Enable verbose debug logging
-python genesys_bot.py -v -m payload -p xss
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    -v -m payload -p xss
 
-# Use custom config file
-python genesys_bot.py -c myconfig.json -m file -f messages.txt
+# Use with Burp Suite proxy
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    --proxy-http http://127.0.0.1:8080 \
+    --proxy-https http://127.0.0.1:8080 \
+    -m payload -p xss
 
 # Add initial delay before starting chat
-python genesys_bot.py --initial-delay 5 -m payload -p sqli
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    --initial-delay 5 -m payload -p sqli
 
-# Custom initial message when starting chat
-python genesys_bot.py --initial-message "Hello agent!" -m interactive
+# Custom user information
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    --nickname "SecurityTester" \
+    --first-name "John" \
+    --last-name "Doe" \
+    --email "john@example.com" \
+    -m interactive
 ```
 
 ## Example Workflows
@@ -144,10 +196,14 @@ python genesys_bot.py --initial-message "Hello agent!" -m interactive
 ### 1. WAF Bypass Testing
 
 ```bash
+# Set API key once
+export GENESYS_API_KEY="your_api_key"
+
 # Test with Burp Suite proxy
-# 1. Configure proxy in data.json
-# 2. Run payload tests
-python genesys_bot.py -m payload -p xss -d 2 -v
+python genesys_bot.py -s https://target.com/genesys/2/chat/ServiceName/ \
+    --proxy-http http://127.0.0.1:8080 \
+    --proxy-https http://127.0.0.1:8080 \
+    -m payload -p xss -d 2 -v
 
 # Monitor Burp Suite for:
 # - Which payloads get through
@@ -159,11 +215,15 @@ python genesys_bot.py -m payload -p xss -d 2 -v
 
 ```bash
 # Create realistic conversation flow
-python genesys_bot.py -m file -f payloads/normal_conversation.txt -d 3
+python genesys_bot.py -s https://target.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    -m file -f payloads/normal_conversation.txt -d 3
 
 # Mix normal and malicious traffic
 cat payloads/normal_conversation.txt payloads/xss_advanced.txt > mixed.txt
-python genesys_bot.py -m file -f mixed.txt -d 2
+python genesys_bot.py -s https://target.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    -m file -f mixed.txt -d 2
 ```
 
 ### 3. Custom Payload Testing
@@ -178,7 +238,9 @@ Normal message 2
 Normal message 3
 EOF
 
-python genesys_bot.py -m file -f custom_payloads.txt
+python genesys_bot.py -s https://target.com/genesys/2/chat/ServiceName/ \
+    --api-key YOUR_KEY \
+    -m file -f custom_payloads.txt
 ```
 
 ## File Structure
@@ -186,20 +248,19 @@ python genesys_bot.py -m file -f custom_payloads.txt
 ```
 GChat/
 ├── genesys_bot.py              # Main bot script (refactored & improved)
-├── gchat.py                    # Original script (kept for reference)
-├── data.json                   # Your configuration file
-├── config.example.json         # Example configuration
 ├── README.md                   # This file
+├── QUICK_START.md              # Quick start guide
+├── IMPROVEMENTS.md             # Detailed improvements documentation
 ├── payloads/                   # Payload files
 │   ├── waf_test_basic.txt     # Basic WAF tests
 │   ├── xss_advanced.txt       # Advanced XSS payloads
 │   ├── sqli_advanced.txt      # Advanced SQL injection
 │   └── normal_conversation.txt # Normal chat messages
-└── genesys_chat/               # Modular library (optional)
+└── genesys_chat/               # Modular library
     ├── __init__.py
     ├── client.py              # Full-featured client
     ├── models.py              # Type-safe data models
-    ├── config.py              # Configuration management
+    ├── logger.py              # Logging utilities
     └── exceptions.py          # Custom exceptions
 ```
 
@@ -209,26 +270,27 @@ GChat/
 
 | Issue | Original | Improved |
 |-------|----------|----------|
+| **Config files** | JSON files with secrets | CLI args + env vars |
+| **Hardcoded URLs** | gms.example.com in files | Dynamic via -s flag |
 | **Mixed concerns** | Everything in one class | Separated: Client, Bot, PayloadGenerator |
 | **Poor naming** | `printData`, `gms_dict` | `_log_message`, `ChatSession` |
 | **No type safety** | No type hints | Full type annotations |
-| **Magic values** | Hardcoded strings | Constants and enums |
+| **Magic values** | Hardcoded strings | Constants and clear defaults |
 | **sys.exit()** | Called everywhere | Proper returns and exceptions |
 | **print() logging** | Mixed print statements | Structured logging |
-| **No organization** | Single 220-line file | Clean modular code |
-| **Limited features** | 4 endpoints | 15+ endpoints + helpers |
 
 ### Key Refactorings
 
-1. **Class-Based Design**
+1. **No Config Files Needed**
    ```python
-   # Before: Functions with global state
-   def commit(self, output:str = None) -> json:
-       # Complex logic
+   # Before: Create and edit JSON files
+   cp config.example.json data.json
+   vim data.json  # Edit URL, API key, etc.
+   python genesys_bot.py -c data.json
 
-   # After: Clean methods with clear responsibility
-   def _make_request(self, url: str, data: Dict[str, Any], description: str = "") -> Optional[Dict[str, Any]]:
-       """Make HTTP request to Genesys API."""
+   # After: Direct CLI configuration
+   export GENESYS_API_KEY="your_key"
+   python genesys_bot.py -s https://target.com/genesys/2/chat/Service/
    ```
 
 2. **Better Data Management**
@@ -290,29 +352,52 @@ The refactored client implements all endpoints from the OpenAPI specification:
 
 ## Tips for WAF Testing
 
-1. **Use Burp Suite**: Configure proxy in `data.json` to intercept all traffic
-2. **Start Normal**: Begin with normal conversation to establish baseline
-3. **Gradual Testing**: Test payload categories one at a time
-4. **Monitor Responses**: Check for different response patterns
-5. **Encoding Tests**: Use encoding variants for bypass attempts
-6. **Rate Limiting**: Add delays to avoid triggering rate limits
-7. **Mix Traffic**: Combine normal and malicious traffic patterns
+1. **Use Environment Variables**: Keep API keys secure with `GENESYS_API_KEY`
+2. **Use Burp Suite**: Configure proxy with `--proxy-http` and `--proxy-https`
+3. **Start Normal**: Begin with normal conversation to establish baseline
+4. **Gradual Testing**: Test payload categories one at a time
+5. **Monitor Responses**: Check for different response patterns
+6. **Encoding Tests**: Use encoding variants for bypass attempts
+7. **Rate Limiting**: Add delays to avoid triggering rate limits
+8. **Mix Traffic**: Combine normal and malicious traffic patterns
+
+## Quick Start
+
+```bash
+# 1. Set your API key
+export GENESYS_API_KEY="your_api_key_here"
+
+# 2. Run a simple test
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/
+
+# 3. Test with payloads
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    -m payload -p xss
+
+# 4. Interactive mode
+python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+    -m interactive
+```
 
 ## Troubleshooting
 
+**Missing API key error:**
+- Set `GENESYS_API_KEY` environment variable, or
+- Pass `--api-key YOUR_KEY` on command line
+
 **Chat won't start:**
-- Check API key in config
-- Verify URL endpoint is correct
-- Check proxy settings if using Burp Suite
+- Verify server URL format: `https://host/genesys/2/chat/ServiceName/`
+- Check API key is correct
+- Try with `--verify-ssl` if SSL issues occur
+- Use `-v` for verbose logging
 
 **WAF blocking everything:**
-- Try normal conversation first
-- Increase delays between messages
-- Check User-Agent string
-- Verify SSL verification settings
+- Try normal conversation first with `-m payload -p normal`
+- Increase delays between messages with `-d 5`
+- Check if proxy is interfering
 
 **No messages received:**
-- Check transcript position
+- Check transcript position in logs
 - Try `/refresh` in interactive mode
 - Verify chat session is still active
 

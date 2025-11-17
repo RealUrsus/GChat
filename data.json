@@ -1,0 +1,50 @@
+{
+    "method": "POST",
+    "url": "https://gms.example.com/genesys/2/chat/CE18_Digital_Chat/",
+    "headers": {
+        "Accept": "*/*",
+        "apikey": "AfMPNj4AmaXJQx3wGAnekxvsJvyuFvEy",
+        "Accept-Encoding": "gzip, deflate",
+        "Accept-language": "en-US,en;q=0.5",
+        "Cache-Control": "no-cache",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "Mozilla/5.0 (Windows NT 11.1; Win64; x64; rv:88.0) Gecko/20100101 Firefox/88.0",
+        "Sec-Fetch-Site": "cross-site",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Dest": "empty"
+    },
+    "params": {
+   },
+    "proxies": {
+        "http": "http://127.0.0.1:8080",
+        "https": "http://127.0.0.1:8080"
+    },
+    "cookies": {        
+    },
+    "data": {
+        "alias": "",
+        "secureKey": "",
+        "userId": "",
+        "nickname": "NickName",
+        "firstName": "FirstName",
+        "lastName": "LastName",
+        "emailAddress": "test@mail.com",
+        "subject": "Test Subject",
+        "text": "Initial Text",
+        "userData[GCTI_LanguageCode]": "en",
+        "userData[_genesys_source]": "web",
+        "userData[_genesys_referrer]": "https://gms.example.com",
+        "userData[_genesys_url]": "https://gms.example.com",
+        "userData[_genesys_pageTitle]": "Hack Me Chat",
+        "userData[_genesys_browser]": "Chrome",
+        "userData[_genesys_OS]": "ReactOS",
+        "userData[_genesys_widgets]": "9.0.069.96",
+        "userData[_genesys_wts]": "9.0.069.96",
+        "userData[chatscreening]": "Internal Booking_Support"
+    },
+    "json": {},
+    "cert": {},
+    "auth": {},
+    "allow_redirects": true,
+    "verify": false
+}

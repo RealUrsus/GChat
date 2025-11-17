@@ -8,6 +8,8 @@ A powerful testing tool for WAF and Genesys Web Chat v2 API security testing and
 - 🛡️ **WAF Testing** - Built-in payloads for XSS, SQLi, Command Injection, Path Traversal, XXE
 - 🤖 **Conversation Bot** - Automated conversation generation and testing
 - 📝 **Multiple Modes** - File-based, payload testing, interactive, and simple modes
+- 🌐 **NEW: External Chat Services** - Integration with OpenAI, Groq, Together AI for semi-mindful conversations
+- 🔀 **NEW: Hybrid Mode** - Combine file prompts with AI-generated responses for realistic chats
 - 🎯 **Payload Generators** - Pre-built payload sets with encoding variants
 - 📊 **Better Logging** - Clear, structured logging with request tracking
 - ⚙️ **Flexible Configuration** - Command-line based configuration (no config files needed!)
@@ -23,7 +25,7 @@ A powerful testing tool for WAF and Genesys Web Chat v2 API security testing and
 - **No Config Files**: All configuration via CLI arguments and environment variables
 
 ### Features
-- **4 Operation Modes**: Simple, File, Payload, Interactive
+- **6 Operation Modes**: Simple, File, Payload, Interactive, External, Hybrid
 - **WAF Detection**: Automatically detects and logs WAF blocks
 - **Request Counter**: Tracks total requests made
 - **Flexible Delays**: Configurable delays for realistic conversation timing
@@ -187,6 +189,65 @@ python genesys_bot.py -s gms.example.com --service MyService \
 Commands in interactive mode:
 - `/refresh` - Refresh and show new messages
 - `/quit` - Disconnect and exit
+
+### 5. External Mode (AI-Driven Conversations) 🆕
+
+Use external AI chat services to generate realistic, semi-mindful conversations:
+
+```bash
+# Using Groq (free, fast)
+python genesys_bot.py -s gms.example.com --service MyService \
+    --api-key YOUR_GENESYS_KEY \
+    -m external \
+    --external-service groq \
+    --external-api-key YOUR_GROQ_KEY \
+    --max-turns 10
+
+# Using OpenAI
+python genesys_bot.py -s gms.example.com --service MyService \
+    --api-key YOUR_GENESYS_KEY \
+    -m external \
+    --external-service openai \
+    --external-model gpt-3.5-turbo \
+    --max-turns 15
+
+# With custom system prompt
+python genesys_bot.py -s gms.example.com --service MyService \
+    --api-key YOUR_GENESYS_KEY \
+    -m external \
+    --external-service groq \
+    --external-system-prompt "You are an angry customer complaining about service."
+```
+
+**Supported Services:**
+- `groq` - Groq (free, fast, recommended)
+- `openai` - OpenAI
+- `together` - Together AI
+- `custom` - Custom OpenAI-compatible endpoint
+
+### 6. Hybrid Mode (File Prompts + AI Responses) 🆕
+
+Combine file-based prompts with AI-generated responses for the most realistic conversations:
+
+```bash
+# Using file prompts with AI responses
+python genesys_bot.py -s gms.example.com --service MyService \
+    --api-key YOUR_GENESYS_KEY \
+    -m hybrid \
+    -f payloads/normal_conversation.txt \
+    --external-service groq \
+    --external-api-key YOUR_GROQ_KEY
+
+# Or use environment variable
+export EXTERNAL_API_KEY=your_groq_key
+python genesys_bot.py -s gms.example.com --service MyService \
+    --api-key YOUR_GENESYS_KEY \
+    -m hybrid \
+    -f payloads/normal_conversation.txt \
+    --external-service groq
+```
+
+**📖 For detailed external service setup and usage, see [EXTERNAL_CHAT_GUIDE.md](EXTERNAL_CHAT_GUIDE.md)**
 
 ### Advanced Options
 

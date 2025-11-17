@@ -17,6 +17,13 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
+# Try to load .env file support
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Load .env file if present
+except ImportError:
+    pass  # python-dotenv not installed, skip
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -52,7 +59,8 @@ class GenesysChatClient:
 
     def __init__(
         self,
-        server_url: str,
+        server: str,
+        service_name: str,
         api_key: str,
         nickname: str = "TestUser",
         first_name: str = "Test",
@@ -63,12 +71,14 @@ class GenesysChatClient:
         proxy_http: Optional[str] = None,
         proxy_https: Optional[str] = None,
         verify_ssl: bool = False,
+        use_https: bool = True,
         user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gecko/20100101 Firefox/90.0"
     ):
         """Initialize client with server configuration.
 
         Args:
-            server_url: Base Genesys Chat URL (e.g., https://example.com/genesys/2/chat/ServiceName/)
+            server: Server hostname (e.g., example.com or gms.example.com)
+            service_name: Genesys service name (e.g., MyServiceName)
             api_key: API key for authentication
             nickname: User nickname
             first_name: User first name
@@ -79,9 +89,12 @@ class GenesysChatClient:
             proxy_http: HTTP proxy URL
             proxy_https: HTTPS proxy URL
             verify_ssl: Whether to verify SSL certificates
+            use_https: Use HTTPS protocol (default: True)
             user_agent: User-Agent header
         """
-        self.server_url = server_url.rstrip('/') + '/'
+        # Build full URL from components
+        protocol = "https" if use_https else "http"
+        self.server_url = f"{protocol}://{server}/genesys/2/chat/{service_name}/"
         self.api_key = api_key
         self.session: Optional[ChatSession] = None
         self.request_count = 0
@@ -632,20 +645,32 @@ def main():
     """Main entry point for the bot."""
     parser = argparse.ArgumentParser(
         description='Genesys Web Chat Testing Bot - WAF and Chat Testing Tool',
-        epilog='Example: %(prog)s -s https://example.com/genesys/2/chat/ServiceName/ --api-key YOUR_KEY -m payload -p xss'
+        epilog='Example: %(prog)s -s gms.example.com --service MyService --api-key YOUR_KEY -m payload -p xss'
     )
 
     # Server Configuration (Required)
     parser.add_argument(
         '-s', '--server',
-        required=True,
-        help='Genesys Chat server URL (e.g., https://example.com/genesys/2/chat/ServiceName/)'
+        default=None,
+        help='Server hostname (e.g., gms.example.com) - can use GENESYS_SERVER env var'
+    )
+
+    parser.add_argument(
+        '--service',
+        default=None,
+        help='Service name (e.g., MyServiceName) - can use GENESYS_SERVICE env var'
     )
 
     parser.add_argument(
         '--api-key',
         default=None,
-        help='API key for authentication (can also use GENESYS_API_KEY env var)'
+        help='API key for authentication - can use GENESYS_API_KEY env var'
+    )
+
+    parser.add_argument(
+        '--use-http',
+        action='store_true',
+        help='Use HTTP instead of HTTPS (default: HTTPS)'
     )
 
     # User Configuration
@@ -758,15 +783,30 @@ def main():
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    # Get API key from args or environment
+    # Get configuration from args or environment variables
+    server = args.server or os.environ.get('GENESYS_SERVER')
+    service = args.service or os.environ.get('GENESYS_SERVICE')
     api_key = args.api_key or os.environ.get('GENESYS_API_KEY')
+
+    # Validate required parameters
+    if not server:
+        logger.error("Server hostname required: use -s or set GENESYS_SERVER environment variable")
+        logger.error("Example: -s gms.example.com or export GENESYS_SERVER=gms.example.com")
+        sys.exit(1)
+
+    if not service:
+        logger.error("Service name required: use --service or set GENESYS_SERVICE environment variable")
+        logger.error("Example: --service MyServiceName or export GENESYS_SERVICE=MyServiceName")
+        sys.exit(1)
+
     if not api_key:
         logger.error("API key required: use --api-key or set GENESYS_API_KEY environment variable")
         sys.exit(1)
 
     # Initialize client
     client = GenesysChatClient(
-        server_url=args.server,
+        server=server,
+        service_name=service,
         api_key=api_key,
         nickname=args.nickname,
         first_name=args.first_name,
@@ -776,8 +816,12 @@ def main():
         initial_text=args.initial_message,
         proxy_http=args.proxy_http,
         proxy_https=args.proxy_https,
-        verify_ssl=args.verify_ssl
+        verify_ssl=args.verify_ssl,
+        use_https=not args.use_http
     )
+
+    # Log the constructed URL for debugging
+    logger.info(f"Connecting to: {client.server_url}")
 
     # Start chat session
     if not client.start_chat(args.initial_message, delay=args.initial_delay):

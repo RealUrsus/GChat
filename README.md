@@ -51,22 +51,42 @@ chmod +x genesys_bot.py
 
 ## Configuration
 
-### Environment Variables (Recommended for API Key)
+### .env File (Recommended)
+
+Create a `.env` file in the project directory:
 
 ```bash
-# Set your API key as environment variable (recommended)
-export GENESYS_API_KEY="your_api_key_here"
+# Copy example file
+cp .env.example .env
+
+# Edit with your values
+GENESYS_SERVER=gms.example.com
+GENESYS_SERVICE=MyServiceName
+GENESYS_API_KEY=your_api_key_here
+```
+
+### Environment Variables
+
+```bash
+# Required
+export GENESYS_SERVER=gms.example.com
+export GENESYS_SERVICE=MyServiceName
+export GENESYS_API_KEY=your_api_key_here
+
+# Optional
+export HTTP_PROXY=http://127.0.0.1:8080
+export HTTPS_PROXY=http://127.0.0.1:8080
 ```
 
 ### Command-Line Arguments
 
-All configuration is now done via command-line arguments. No JSON config files needed!
-
-**Required:**
-- `-s, --server` - Genesys Chat server URL
+**Required (if not in .env):**
+- `-s, --server` - Server hostname (e.g., gms.example.com)
+- `--service` - Service name (e.g., MyServiceName)
+- `--api-key` - API key
 
 **Optional:**
-- `--api-key` - API key (or use GENESYS_API_KEY env var)
+- `--use-http` - Use HTTP instead of HTTPS (default: HTTPS)
 - `--nickname` - User nickname (default: TestUser)
 - `--first-name` - First name (default: Test)
 - `--last-name` - Last name (default: User)
@@ -76,6 +96,8 @@ All configuration is now done via command-line arguments. No JSON config files n
 - `--proxy-https` - HTTPS proxy URL
 - `--verify-ssl` - Enable SSL verification (disabled by default)
 
+**Note:** The path `/genesys/2/chat/{ServiceName}/` is built automatically. HTTPS is used by default.
+
 ## Usage
 
 ### 1. Simple Mode (Quick Test)
@@ -83,16 +105,20 @@ All configuration is now done via command-line arguments. No JSON config files n
 Send a single test message:
 
 ```bash
-# Using environment variable for API key
-export GENESYS_API_KEY="your_api_key"
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/
+# Using .env file (recommended)
+python genesys_bot.py -s gms.example.com --service MyService
 
-# Or pass API key directly
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
-    --api-key YOUR_KEY
+# Using environment variables
+export GENESYS_SERVER=gms.example.com
+export GENESYS_SERVICE=MyService
+export GENESYS_API_KEY=your_api_key
+python genesys_bot.py
+
+# Or pass everything via CLI
+python genesys_bot.py -s gms.example.com --service MyService --api-key YOUR_KEY
 
 # With custom initial message
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+python genesys_bot.py -s gms.example.com --service MyService \
     --api-key YOUR_KEY \
     --initial-message "Test message"
 ```
@@ -102,12 +128,11 @@ python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
 Send messages from a text file (one message per line):
 
 ```bash
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
-    --api-key YOUR_KEY \
-    -m file -f payloads/normal_conversation.txt
+# Using .env file
+python genesys_bot.py -m file -f payloads/normal_conversation.txt
 
 # With custom delay between messages
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+python genesys_bot.py -s gms.example.com --service MyService \
     --api-key YOUR_KEY \
     -m file -f payloads/waf_test_basic.txt -d 3
 ```
@@ -117,23 +142,21 @@ python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
 Test specific payload types:
 
 ```bash
-# Test all payload types
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
-    --api-key YOUR_KEY \
-    -m payload -p all
+# Test all payload types (using .env file)
+python genesys_bot.py -m payload -p all
 
 # Test only XSS payloads
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+python genesys_bot.py -s gms.example.com --service MyService \
     --api-key YOUR_KEY \
     -m payload -p xss
 
 # Test SQL injection with 5-second delays
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+python genesys_bot.py -s gms.example.com --service MyService \
     --api-key YOUR_KEY \
     -m payload -p sqli -d 5
 
 # Stop on first WAF block
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+python genesys_bot.py -s gms.example.com --service MyService \
     --api-key YOUR_KEY \
     -m payload -p all --stop-on-block
 ```
@@ -152,7 +175,11 @@ Available payload types:
 Interactive chat session with manual message input:
 
 ```bash
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
+# Using .env file
+python genesys_bot.py -m interactive
+
+# Or with CLI args
+python genesys_bot.py -s gms.example.com --service MyService \
     --api-key YOUR_KEY \
     -m interactive
 ```
@@ -165,30 +192,30 @@ Commands in interactive mode:
 
 ```bash
 # Enable verbose debug logging
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
-    --api-key YOUR_KEY \
-    -v -m payload -p xss
+python genesys_bot.py -v -m payload -p xss
 
 # Use with Burp Suite proxy
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
-    --api-key YOUR_KEY \
+python genesys_bot.py -s gms.example.com --service MyService \
     --proxy-http http://127.0.0.1:8080 \
     --proxy-https http://127.0.0.1:8080 \
     -m payload -p xss
 
 # Add initial delay before starting chat
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
-    --api-key YOUR_KEY \
+python genesys_bot.py -s gms.example.com --service MyService \
     --initial-delay 5 -m payload -p sqli
 
 # Custom user information
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
-    --api-key YOUR_KEY \
+python genesys_bot.py -s gms.example.com --service MyService \
     --nickname "SecurityTester" \
     --first-name "John" \
     --last-name "Doe" \
     --email "john@example.com" \
     -m interactive
+
+# Use HTTP instead of HTTPS (if needed)
+python genesys_bot.py -s gms.example.com --service MyService \
+    --use-http \
+    -m simple
 ```
 
 ## Example Workflows
@@ -196,14 +223,17 @@ python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
 ### 1. WAF Bypass Testing
 
 ```bash
-# Set API key once
-export GENESYS_API_KEY="your_api_key"
+# Create .env file with credentials
+cat > .env << 'EOF'
+GENESYS_SERVER=target.com
+GENESYS_SERVICE=MyServiceName
+GENESYS_API_KEY=your_api_key
+HTTP_PROXY=http://127.0.0.1:8080
+HTTPS_PROXY=http://127.0.0.1:8080
+EOF
 
 # Test with Burp Suite proxy
-python genesys_bot.py -s https://target.com/genesys/2/chat/ServiceName/ \
-    --proxy-http http://127.0.0.1:8080 \
-    --proxy-https http://127.0.0.1:8080 \
-    -m payload -p xss -d 2 -v
+python genesys_bot.py -m payload -p xss -d 2 -v
 
 # Monitor Burp Suite for:
 # - Which payloads get through
@@ -214,16 +244,12 @@ python genesys_bot.py -s https://target.com/genesys/2/chat/ServiceName/ \
 ### 2. Conversation Simulation
 
 ```bash
-# Create realistic conversation flow
-python genesys_bot.py -s https://target.com/genesys/2/chat/ServiceName/ \
-    --api-key YOUR_KEY \
-    -m file -f payloads/normal_conversation.txt -d 3
+# Create realistic conversation flow (using .env)
+python genesys_bot.py -m file -f payloads/normal_conversation.txt -d 3
 
 # Mix normal and malicious traffic
 cat payloads/normal_conversation.txt payloads/xss_advanced.txt > mixed.txt
-python genesys_bot.py -s https://target.com/genesys/2/chat/ServiceName/ \
-    --api-key YOUR_KEY \
-    -m file -f mixed.txt -d 2
+python genesys_bot.py -m file -f mixed.txt -d 2
 ```
 
 ### 3. Custom Payload Testing
@@ -238,9 +264,8 @@ Normal message 2
 Normal message 3
 EOF
 
-python genesys_bot.py -s https://target.com/genesys/2/chat/ServiceName/ \
-    --api-key YOUR_KEY \
-    -m file -f custom_payloads.txt
+# Test with .env configured
+python genesys_bot.py -m file -f custom_payloads.txt
 ```
 
 ## File Structure
@@ -248,6 +273,8 @@ python genesys_bot.py -s https://target.com/genesys/2/chat/ServiceName/ \
 ```
 GChat/
 ├── genesys_bot.py              # Main bot script (refactored & improved)
+├── .env                        # Your configuration (create from .env.example)
+├── .env.example                # Example configuration file
 ├── README.md                   # This file
 ├── QUICK_START.md              # Quick start guide
 ├── IMPROVEMENTS.md             # Detailed improvements documentation
@@ -270,8 +297,9 @@ GChat/
 
 | Issue | Original | Improved |
 |-------|----------|----------|
-| **Config files** | JSON files with secrets | CLI args + env vars |
-| **Hardcoded URLs** | gms.example.com in files | Dynamic via -s flag |
+| **Config files** | JSON files with secrets | .env + CLI args + env vars |
+| **Hardcoded URLs** | Full URLs in config | Just hostname, path auto-built |
+| **Protocol** | Hardcoded in URL | HTTPS by default, --use-http flag |
 | **Mixed concerns** | Everything in one class | Separated: Client, Bot, PayloadGenerator |
 | **Poor naming** | `printData`, `gms_dict` | `_log_message`, `ChatSession` |
 | **No type safety** | No type hints | Full type annotations |
@@ -281,16 +309,26 @@ GChat/
 
 ### Key Refactorings
 
-1. **No Config Files Needed**
-   ```python
+1. **No Config Files Needed - Use .env Instead**
+   ```bash
    # Before: Create and edit JSON files
    cp config.example.json data.json
-   vim data.json  # Edit URL, API key, etc.
+   vim data.json  # Edit full URL, API key, etc.
    python genesys_bot.py -c data.json
 
-   # After: Direct CLI configuration
-   export GENESYS_API_KEY="your_key"
-   python genesys_bot.py -s https://target.com/genesys/2/chat/Service/
+   # After: Use .env file (recommended)
+   cp .env.example .env
+   vim .env  # Just hostname, service name, API key
+   python genesys_bot.py
+
+   # Or environment variables
+   export GENESYS_SERVER=gms.example.com
+   export GENESYS_SERVICE=MyService
+   export GENESYS_API_KEY=your_key
+   python genesys_bot.py
+
+   # Or CLI (for quick tests)
+   python genesys_bot.py -s gms.example.com --service MyService --api-key KEY
    ```
 
 2. **Better Data Management**
@@ -364,32 +402,36 @@ The refactored client implements all endpoints from the OpenAPI specification:
 ## Quick Start
 
 ```bash
-# 1. Set your API key
-export GENESYS_API_KEY="your_api_key_here"
+# 1. Install dependencies (optional: python-dotenv for .env support)
+pip install requests urllib3 python-dotenv
 
-# 2. Run a simple test
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/
+# 2. Create .env file
+cp .env.example .env
+# Edit .env with your server, service name, and API key
 
-# 3. Test with payloads
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
-    -m payload -p xss
+# 3. Run a simple test
+python genesys_bot.py
 
-# 4. Interactive mode
-python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
-    -m interactive
+# 4. Test with payloads
+python genesys_bot.py -m payload -p xss
+
+# 5. Interactive mode
+python genesys_bot.py -m interactive
 ```
 
 ## Troubleshooting
 
-**Missing API key error:**
-- Set `GENESYS_API_KEY` environment variable, or
-- Pass `--api-key YOUR_KEY` on command line
+**Missing configuration error:**
+- Create `.env` file from `.env.example`, or
+- Set environment variables: `GENESYS_SERVER`, `GENESYS_SERVICE`, `GENESYS_API_KEY`, or
+- Pass via CLI: `-s hostname --service ServiceName --api-key KEY`
 
 **Chat won't start:**
-- Verify server URL format: `https://host/genesys/2/chat/ServiceName/`
-- Check API key is correct
+- Verify server hostname (just `gms.example.com`, not full URL)
+- Check service name is correct
+- Check API key is valid
 - Try with `--verify-ssl` if SSL issues occur
-- Use `-v` for verbose logging
+- Use `-v` for verbose logging to see the constructed URL
 
 **WAF blocking everything:**
 - Try normal conversation first with `-m payload -p normal`
@@ -400,6 +442,10 @@ python genesys_bot.py -s https://your-server.com/genesys/2/chat/ServiceName/ \
 - Check transcript position in logs
 - Try `/refresh` in interactive mode
 - Verify chat session is still active
+
+**python-dotenv not installed:**
+- Install with `pip install python-dotenv`, or
+- Use environment variables or CLI arguments instead
 
 ## License
 

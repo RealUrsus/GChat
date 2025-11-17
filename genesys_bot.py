@@ -4,6 +4,7 @@ Genesys Web Chat Testing Bot
 A tool for testing WAF and Genesys Chat with conversation generation and payload testing.
 """
 
+import os
 import sys
 import json
 import time
@@ -49,27 +50,78 @@ class ChatSession:
 class GenesysChatClient:
     """Enhanced Genesys Web Chat v2 API Client for testing."""
 
-    def __init__(self, config_file: str):
-        """Initialize client with configuration file.
+    def __init__(
+        self,
+        server_url: str,
+        api_key: str,
+        nickname: str = "TestUser",
+        first_name: str = "Test",
+        last_name: str = "User",
+        email: str = "test@example.com",
+        subject: str = "Testing",
+        initial_text: str = "",
+        proxy_http: Optional[str] = None,
+        proxy_https: Optional[str] = None,
+        verify_ssl: bool = False,
+        user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gecko/20100101 Firefox/90.0"
+    ):
+        """Initialize client with server configuration.
 
         Args:
-            config_file: Path to JSON configuration file
+            server_url: Base Genesys Chat URL (e.g., https://example.com/genesys/2/chat/ServiceName/)
+            api_key: API key for authentication
+            nickname: User nickname
+            first_name: User first name
+            last_name: User last name
+            email: User email address
+            subject: Chat subject
+            initial_text: Initial message when starting chat
+            proxy_http: HTTP proxy URL
+            proxy_https: HTTPS proxy URL
+            verify_ssl: Whether to verify SSL certificates
+            user_agent: User-Agent header
         """
-        self.config = self._load_config(config_file)
+        self.server_url = server_url.rstrip('/') + '/'
+        self.api_key = api_key
         self.session: Optional[ChatSession] = None
         self.request_count = 0
 
-    def _load_config(self, config_file: str) -> Dict[str, Any]:
-        """Load configuration from JSON file."""
-        try:
-            with open(config_file, 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            logger.error(f"Configuration file not found: {config_file}")
-            sys.exit(1)
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in config file: {e}")
-            sys.exit(1)
+        # Build request configuration
+        self.config = {
+            'method': 'POST',
+            'url': self.server_url,
+            'headers': {
+                'Accept': '*/*',
+                'apikey': api_key,
+                'Accept-Encoding': 'gzip, deflate',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Cache-Control': 'no-cache',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': user_agent,
+                'Sec-Fetch-Site': 'cross-site',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Dest': 'empty'
+            },
+            'data': {
+                'nickname': nickname,
+                'firstName': first_name,
+                'lastName': last_name,
+                'emailAddress': email,
+                'subject': subject,
+                'text': initial_text,
+                'userData[GCTI_LanguageCode]': 'en',
+                'userData[_genesys_source]': 'web'
+            },
+            'verify': verify_ssl
+        }
+
+        # Add proxies if specified
+        if proxy_http or proxy_https:
+            self.config['proxies'] = {}
+            if proxy_http:
+                self.config['proxies']['http'] = proxy_http
+            if proxy_https:
+                self.config['proxies']['https'] = proxy_https
 
     def _make_request(
         self,
@@ -153,8 +205,7 @@ class GenesysChatClient:
             data['text'] = initial_text
 
         # Make request
-        url = self.config['url']
-        response = self._make_request(url, data, "Creating chat session")
+        response = self._make_request(self.server_url, data, "Creating chat session")
 
         if not response:
             logger.error("❌ Failed to start chat")
@@ -167,7 +218,7 @@ class GenesysChatClient:
             user_id=response['userId'],
             alias=response['alias'],
             transcript_position=response.get('nextPosition', 0),
-            base_url=url
+            base_url=self.server_url
         )
 
         logger.info(f"✅ Chat started successfully")
@@ -580,14 +631,69 @@ class ConversationBot:
 def main():
     """Main entry point for the bot."""
     parser = argparse.ArgumentParser(
-        description='Genesys Web Chat Testing Bot - WAF and Chat Testing Tool'
+        description='Genesys Web Chat Testing Bot - WAF and Chat Testing Tool',
+        epilog='Example: %(prog)s -s https://example.com/genesys/2/chat/ServiceName/ --api-key YOUR_KEY -m payload -p xss'
     )
 
-    # Configuration
+    # Server Configuration (Required)
     parser.add_argument(
-        '-c', '--config',
-        default='data.json',
-        help='Path to configuration JSON file (default: data.json)'
+        '-s', '--server',
+        required=True,
+        help='Genesys Chat server URL (e.g., https://example.com/genesys/2/chat/ServiceName/)'
+    )
+
+    parser.add_argument(
+        '--api-key',
+        default=None,
+        help='API key for authentication (can also use GENESYS_API_KEY env var)'
+    )
+
+    # User Configuration
+    parser.add_argument(
+        '--nickname',
+        default='TestUser',
+        help='User nickname (default: TestUser)'
+    )
+
+    parser.add_argument(
+        '--first-name',
+        default='Test',
+        help='User first name (default: Test)'
+    )
+
+    parser.add_argument(
+        '--last-name',
+        default='User',
+        help='User last name (default: User)'
+    )
+
+    parser.add_argument(
+        '--email',
+        default='test@example.com',
+        help='User email (default: test@example.com)'
+    )
+
+    parser.add_argument(
+        '--subject',
+        default='Testing',
+        help='Chat subject (default: Testing)'
+    )
+
+    # Proxy Configuration
+    parser.add_argument(
+        '--proxy-http',
+        help='HTTP proxy URL (e.g., http://127.0.0.1:8080)'
+    )
+
+    parser.add_argument(
+        '--proxy-https',
+        help='HTTPS proxy URL (e.g., http://127.0.0.1:8080)'
+    )
+
+    parser.add_argument(
+        '--verify-ssl',
+        action='store_true',
+        help='Enable SSL certificate verification (default: disabled)'
     )
 
     # Mode selection
@@ -595,7 +701,7 @@ def main():
         '-m', '--mode',
         choices=['file', 'payload', 'interactive', 'simple'],
         default='simple',
-        help='Operation mode'
+        help='Operation mode (default: simple)'
     )
 
     # File mode options
@@ -609,7 +715,7 @@ def main():
         '-p', '--payload-type',
         choices=['xss', 'sqli', 'cmdi', 'path_traversal', 'xxe', 'normal', 'all'],
         default='all',
-        help='Type of payloads to test'
+        help='Type of payloads to test (default: all)'
     )
 
     # Timing options
@@ -652,8 +758,26 @@ def main():
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
+    # Get API key from args or environment
+    api_key = args.api_key or os.environ.get('GENESYS_API_KEY')
+    if not api_key:
+        logger.error("API key required: use --api-key or set GENESYS_API_KEY environment variable")
+        sys.exit(1)
+
     # Initialize client
-    client = GenesysChatClient(args.config)
+    client = GenesysChatClient(
+        server_url=args.server,
+        api_key=api_key,
+        nickname=args.nickname,
+        first_name=args.first_name,
+        last_name=args.last_name,
+        email=args.email,
+        subject=args.subject,
+        initial_text=args.initial_message,
+        proxy_http=args.proxy_http,
+        proxy_https=args.proxy_https,
+        verify_ssl=args.verify_ssl
+    )
 
     # Start chat session
     if not client.start_chat(args.initial_message, delay=args.initial_delay):
